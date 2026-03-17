@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Conda environment
+env/
+.env/
+conda-env/
+*.conda
+
+# IDE
+.vscode/
+.idea/
+
+# comment output
+*.csv
+fuck.csv
+
+# logs
+*.log
+
+# presonal data
+cookie.txt
