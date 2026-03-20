@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>扫码登录</title>
+</head>
+<body>
+
+<h2>扫码登录</h2>
+
+<img id="qrcode" width="200">
+
+<p id="status">等待扫码...</p>
+
+<script>
+let key = null;
+
+// 获取二维码
+async function init() {
+    const res = await fetch("/api/qrcode");
+    const data = await res.json();
+
+    key = data.qrcode_key;
+
+    document.getElementById("qrcode").src =
+        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
+        + encodeURIComponent(data.url);
+
+    poll();
+}
+
+// 轮询
+async function poll() {
+    const timer = setInterval(async () => {
+        const res = await fetch(`/api/check_login?key=${key}`);
+        const data = await res.json();
+
+        const statusText = document.getElementById("status");
+
+        if (data.status === "success") {
+            statusText.innerText = "登录成功！";
+            clearInterval(timer);
+            window.location.href = "/";
+        }
+        else if (data.status === "expired") {
+            statusText.innerText = "二维码过期，请刷新";
+            clearInterval(timer);
+        }
+        else if (data.status === "scanned") {
+            statusText.innerText = "已扫码，请在手机确认";
+        }
+        else {
+            statusText.innerText = "等待扫码...";
+        }
+
+    }, 2000);
+}
+
+init();
+</script>
+
+</body>
+</html>
