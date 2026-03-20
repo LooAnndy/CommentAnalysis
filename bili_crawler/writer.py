@@ -1,34 +1,86 @@
 import csv
-import json
-import os.path
+import os
+from typing import Dict, Any
+from config.paths import DATA_DIR
+
 
 class CommentWriter:
+    """评论CSV写入器（带字段约束 + 数据校验）
 
-    def __init__(self, file_name, append=True):
+    特性：
+        - 固定字段 schema
+        - 自动数据校验
+        - 缓冲区批量写入
+        - 支持 with 上下文
+    """
 
+    def __init__(self, file_name: str, append: bool = True):
         self.buffer = []
-        self.BATCH_SIZE = 5000
+        self.batch_size = 5000
 
-        # check if file is existed
+        # 固定字段（写入顺序）
+        self.fields = ["user", "comment", "likes", "time"]
+
+        file_name = DATA_DIR / file_name
         file_is_exist = os.path.exists(file_name)
 
-        read_type = "a" if append else "w"
-        self.stream = open(file_name, read_type, newline="", encoding="utf-8-sig")
+        mode = "a" if append else "w"
+        self.stream = open(file_name, mode, newline="", encoding="utf-8-sig")
         self.writer = csv.writer(self.stream)
 
-        # start new file
+        # 写入表头
         if not file_is_exist or not append:
-            self.writer.writerow(["user", "comment", "likes", "time"])
+            self.writer.writerow(self.fields)
 
-    def write(self, user, comment, like, time):
+    # 写入文件
+    def write(self, row: Dict[str, Any]):
+        """写入一条评论（带校验）
 
-        self.buffer.append([user, comment, like, time])
+        Args:
+            row (dict):
+                必须包含字段：
+                user, comment, likes, time
+        """
 
-        if len(self.buffer) >= self.BATCH_SIZE:
+        # 校验字段完整性
+        for field in self.fields:
+            if field not in row:
+                raise ValueError(f"缺少字段: {field}")
+
+        # 类型校验
+        self._validate(row)
+
+        # 顺序写入
+        formatted_row = [row[field] for field in self.fields]
+
+        self.buffer.append(formatted_row)
+
+        if len(self.buffer) >= self.batch_size:
             self._flush_buffer()
 
-    def _flush_buffer(self):
+    # 数据校验
+    @staticmethod
+    def _validate(row: Dict[str, Any]):
+        """数据校验"""
 
+        if not isinstance(row["user"], str):
+            raise TypeError("user 必须是 str")
+
+        if not isinstance(row["comment"], str):
+            raise TypeError("comment 必须是 str")
+
+        if not isinstance(row["likes"], int):
+            raise TypeError("likes 必须是 int")
+
+        if not isinstance(row["time"], str):
+            raise TypeError("time 必须是 str")
+
+        # 简单时间格式检查
+        if len(row["time"]) < 10:
+            raise ValueError("time 格式异常")
+
+    # 写入磁盘
+    def _flush_buffer(self):
         if not self.buffer:
             return
 
@@ -37,12 +89,8 @@ class CommentWriter:
         self.buffer.clear()
 
     def close(self):
-
-        # 写入剩余的数据
         self._flush_buffer()
-
         self.stream.close()
-
         print("successfully closed")
 
     def __enter__(self):
