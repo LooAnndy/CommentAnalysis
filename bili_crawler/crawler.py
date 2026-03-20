@@ -2,6 +2,7 @@ import requests
 import time
 import random
 import math
+import json
 from typing import Dict, Any, Tuple, Optional
 
 from config.paths import COOKIE_FILE
@@ -30,15 +31,16 @@ class BiliCrawler:
 
         # read cookie
         with open(COOKIE_FILE, "r") as f:
-            self.cookie = f.read().strip()
+            self.cookie = json.load(f)
+        print(self.cookie)
 
         self.aid = bv2av(bv)
         self.session = requests.Session()
         self.session.trust_env = False
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0",
-            "Cookie": self.cookie
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         })
+        self.session.cookies.update(self.cookie)
         # 每页楼中楼评论数量
         self.ps = 20
 
@@ -143,7 +145,10 @@ class BiliCrawler:
                 "oid": self.aid,
                 "mode": 3  # time order
             }).json()
+            import json
+            print(json.dumps(data, ensure_ascii=False, indent=4))
             self.total_comments = data["data"]["cursor"]["all_count"]
+
             print(f"总共有 {self.total_comments} 条评论")
 
             # 加载断点进度

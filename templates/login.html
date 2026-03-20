@@ -1,61 +1,158 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>扫码登录</title>
+    <title>登录</title>
+
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: url("static/img/bg.jpeg") no-repeat center center;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+
+        body::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* 毛玻璃大卡片 */
+        .card {
+            display: flex;
+            width: 700px;
+            backdrop-filter: blur(15px);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 左右布局 */
+        .left, .right {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .left {
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h3 {
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #ffffff33;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #ffffff55;
+        }
+
+        /* 二维码区域 */
+        .right {
+            text-align: center;
+        }
+
+        #qrcode {
+            margin-top: 10px;
+            border-radius: 10px;
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>扫码登录</h2>
+<div class="card">
 
-<img id="qrcode" width="200">
+    <!-- 左：账号密码 -->
+    <div class="left">
+        <h3>账号登录</h3>
 
-<p id="status">等待扫码...</p>
+        <input type="text" placeholder="用户名">
+        <input type="password" placeholder="密码">
+
+        <button>登录</button>
+    </div>
+
+    <!-- 右：扫码 -->
+    <div class="right">
+        <h3>扫码登录</h3>
+
+        <img id="qrcode" width="180">
+
+        <p id="status">等待扫码...</p>
+    </div>
+
+</div>
 
 <script>
-let key = null;
+    // 短轮询2s
+    async function poll() {
+        const timer = setInterval(async () => {
+            const res = await fetch(`/api/check_login`);
+            const data = await res.json();
 
-// 获取二维码
-async function init() {
-    const res = await fetch("/api/qrcode");
-    const data = await res.json();
+            const statusText = document.getElementById("status");
 
-    key = data.qrcode_key;
+            if (data.status === "success") {
+                statusText.innerText = "登录成功！";
+                clearInterval(timer);
+                // 跳转主页面
+                window.location.href = "/";
+            } else if (data.status === "expired") {
+                statusText.innerText = "二维码过期，请刷新";
+                clearInterval(timer);
+            } else if (data.status === "scanned") {
+                statusText.innerText = "已扫码，请在手机确认";
+            } else {
+                statusText.innerText = "等待扫码...";
+            }
 
-    document.getElementById("qrcode").src =
-        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-        + encodeURIComponent(data.url);
+        }, 2000);
+    }
 
-    poll();
-}
-
-// 轮询
-async function poll() {
-    const timer = setInterval(async () => {
-        const res = await fetch(`/api/check_login?key=${key}`);
+    // 获取二维码
+    async function init() {
+        const res = await fetch("/api/qrcode_data");
         const data = await res.json();
 
-        const statusText = document.getElementById("status");
+        document.getElementById("qrcode").src =
+            "/api/qrcode_image?url=" + encodeURIComponent(data.url);
 
-        if (data.status === "success") {
-            statusText.innerText = "登录成功！";
-            clearInterval(timer);
-            window.location.href = "/";
-        }
-        else if (data.status === "expired") {
-            statusText.innerText = "二维码过期，请刷新";
-            clearInterval(timer);
-        }
-        else if (data.status === "scanned") {
-            statusText.innerText = "已扫码，请在手机确认";
-        }
-        else {
-            statusText.innerText = "等待扫码...";
-        }
+        poll();
+    }
 
-    }, 2000);
-}
-
-init();
+    init();
 </script>
 
 </body>

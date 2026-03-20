@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, redirect
+from flask import Flask, render_template, request, send_file, redirect, session
 import requests
 from config.paths import DATA_DIR, COOKIE_FILE
 import os
@@ -7,11 +7,34 @@ from bili_crawler import BiliCrawler
 
 app = Flask(__name__)
 
+app.secret_key = os.urandom(24)
+
+
+def is_cookie_valid():
+    if not os.path.exists(COOKIE_FILE):
+        return False
+
+    import json
+    with open(COOKIE_FILE) as f:
+        cookies = json.load(f)
+
+    url = "https://api.bilibili.com/x/web-interface/nav"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    }
+
+    resp = requests.get(url, headers=headers, cookies=cookies)
+
+    data = resp.json()
+
+    return data.get("code") == 0
+
 # 首页
 @app.route("/", methods=["GET"])
 def index():
-    if not os.path.exists(COOKIE_FILE):
+    if not is_cookie_valid():
         return redirect("/login")
+
     return render_template("index.html")
 
 
@@ -44,8 +67,8 @@ def crawl():
     )
 
 
-# 获取二维码
-@app.route("/api/qrcode")
+# 后端向bilibili请求二维码api
+@app.route("/api/qrcode_data")
 def get_qrcode():
     # B站生成二维码接口
     url = "https://passport.bilibili.com/x/passport-login/web/qrcode/generate"
@@ -58,16 +81,35 @@ def get_qrcode():
     resp = requests.get(url, headers=headers)
 
     data = resp.json()["data"]
+    session["qrcode_key"] = data["qrcode_key"]
 
     return {
-        "url": data["url"],
-        "qrcode_key": data["qrcode_key"]
+        "url": data["url"]
     }
+
+@app.route("/api/qrcode_image")
+def qrcode_image():
+    qr_url = request.args.get("url")
+
+    import qrcode
+    from io import BytesIO
+    from flask import send_file
+
+    img = qrcode.make(qr_url)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    return send_file(buf, mimetype="image/png")
 
 # 轮询登录状态
 @app.route("/api/check_login")
 def check_login():
-    key = request.args.get("key")
+    key = session.get("qrcode_key", None)
+
+    if not key:
+        return {"status": "error"}
 
     url = "https://passport.bilibili.com/x/passport-login/web/qrcode/poll"
     params = {"qrcode_key": key}
@@ -76,13 +118,13 @@ def check_login():
     }
 
     # 如果返回html证明是被反爬虫了
-    resp = requests.get(url, headers=headers , params=params)
+    resp = requests.get(url, headers=headers, params=params)
 
     result = resp.json()["data"]
+    status_code = result["code"]
 
-    code = result["code"]
-
-    if code == 0:
+    if status_code == 0:
+        # 字典化
         cookies = resp.cookies.get_dict()
 
         import json
@@ -91,10 +133,10 @@ def check_login():
 
         return {"status": "success"}
 
-    elif code == 86038:
+    elif status_code == 86038:
         return {"status": "expired"}
 
-    elif code == 86101:
+    elif status_code == 86101:
         return {"status": "scanned"}  # 已扫码未确认
 
     else:
