@@ -1,17 +1,124 @@
 <!DOCTYPE html>
-<html lang = "ch">
+<html lang="zh">
 <head>
     <meta charset="utf-8">
-    <title>B站评论爬虫</title>
+    <title>B站评论分析</title>
+
+    <!-- 引入 ECharts -->
+    <script src="/static/js/echarts.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+        }
+
+        input {
+            padding: 8px;
+            width: 250px;
+        }
+
+        button {
+            padding: 8px 15px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        #chart {
+            margin-top: 40px;
+            width: 900px;
+            height: 500px;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>B站评论爬虫</h2>
+<h2>B站评论爬虫 + 热度分析</h2>
 
-<form action="/crawl" method="post">
-    <input type="text" name="bv" placeholder="输入BV号">
-    <button type="submit">开始爬取并下载</button>
-</form>
+<!-- 输入 BV -->
+<input type="text" id="bvInput" placeholder="输入BV号">
+
+<!-- 爬虫按钮 -->
+<button onclick="crawl()">开始爬取并下载</button>
+
+<!-- 分析按钮 -->
+<button onclick="loadChart()">查看热度趋势</button>
+
+<!-- 图表容器 -->
+<div id="chart"></div>
+
+<script>
+let chart = echarts.init(document.getElementById('chart'))
+
+// 🕷️ 爬虫
+function crawl() {
+    const bv = document.getElementById("bvInput").value
+
+    if (!bv) {
+        alert("请输入BV号")
+        return
+    }
+
+    // 用 form 方式触发下载
+    const form = document.createElement("form")
+    form.method = "POST"
+    form.action = "/crawl"
+
+    const input = document.createElement("input")
+    input.name = "bv"
+    input.value = bv
+
+    form.appendChild(input)
+    document.body.appendChild(form)
+    form.submit()
+}
+
+// 📊 加载图表
+async function loadChart() {
+    const bv = document.getElementById("bvInput").value
+
+    if (!bv) {
+        alert("请输入BV号")
+        return
+    }
+
+    const res = await fetch(`/api/heat_analysis?bv=${bv}`)
+    const data = await res.json()
+
+    if (data.error) {
+        alert(data.error)
+        return
+    }
+
+    chart.setOption({
+        title: {
+            text: '评论热度趋势'
+        },
+        tooltip: {
+            trigger: 'axis'
+        },
+        xAxis: {
+            type: 'category',
+            data: data.dates
+        },
+        yAxis: {
+            type: 'value'
+        },
+        series: [{
+            name: '评论数',
+            data: data.counts,
+            type: 'line',
+            smooth: true
+        }]
+    })
+}
+
+// 自适应窗口
+window.addEventListener("resize", () => {
+    chart.resize()
+})
+</script>
 
 </body>
 </html>

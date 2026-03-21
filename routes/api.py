@@ -1,6 +1,6 @@
 from flask import Blueprint, request, session, send_file
 import requests
-from config.paths import COOKIE_FILE
+from config.paths import DATA_DIR, COOKIE_FILE
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -24,6 +24,7 @@ def get_qrcode():
         "url": data["url"]
     }
 
+
 @api_bp.route("/qrcode_image")
 def qrcode_image():
     qr_url = request.args.get("url")
@@ -38,6 +39,7 @@ def qrcode_image():
     buf.seek(0)
 
     return send_file(buf, mimetype="image/png")
+
 
 # 轮询登录状态
 @api_bp.route("/check_login")
@@ -77,3 +79,41 @@ def check_login():
 
     else:
         return {"status": "waiting"}  # 未扫码
+
+
+@api_bp.route("/heat_analysis", methods=["GET"])
+def heat_analysis():
+    import pandas as pd
+    from flask import request
+
+    bv = request.args.get("bv")
+
+    if not bv:
+        return {"error": "missing bv"}
+
+    file_path = DATA_DIR / f"{bv}.csv"
+    if not file_path.exists():
+        return {"error": "file not found"}
+
+    df = pd.read_csv(file_path)
+
+    # 检查字段
+    if "time" not in df.columns:
+        return {"error": "missing time column"}
+
+    # 转换时间格式
+    df["time"] = pd.to_datetime(df["time"], errors="coerce")
+
+    # 去掉无效时间
+    df = df.dropna(subset=["time"])
+
+    # 按照天数排序统计评论数量
+
+    # 每天评论数量
+    daily = df.groupby(df["time"].dt.date).size()
+    daily = daily.sort_index()
+
+    return {
+        "dates": [str(d) for d in daily.index],
+        "counts": daily.values.tolist()
+    }

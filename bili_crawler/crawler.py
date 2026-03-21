@@ -136,7 +136,7 @@ class BiliCrawler:
             5. 保存进度
         """
         manager = ProgressManager()
-        writer = CommentWriter(f"bilibili_comments_{self.bv}.csv")
+        writer = CommentWriter(f"{self.bv}.csv")
         try:
             # 获取评论总数
             data = safe_get(self.session, self.url_main, {
@@ -145,8 +145,6 @@ class BiliCrawler:
                 "oid": self.aid,
                 "mode": 3  # time order
             }).json()
-            import json
-            print(json.dumps(data, ensure_ascii=False, indent=4))
             self.total_comments = data["data"]["cursor"]["all_count"]
 
             print(f"总共有 {self.total_comments} 条评论")
