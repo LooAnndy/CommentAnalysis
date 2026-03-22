@@ -59,6 +59,7 @@ function loadBVList() {
             const select = document.getElementById("bvSelect")
             select.innerHTML = "<option value=\"\">选择已有BV</option>";
 
+            // 动态添加option
             data.forEach(bv => {
                 const option = document.createElement("option");
                 option.value = bv;
@@ -68,16 +69,17 @@ function loadBVList() {
         });
 }
 
+// 下拉选择并填入输入框
 function selectBV() {
     document.getElementById("bvInput").value
         = document.getElementById("bvSelect").value
 }
 
-// 🕷️ 爬虫
+// 爬虫接口
 function crawl() {
     const bv = document.getElementById("bvInput").value;
 
-    fetch('/crawl', {
+    fetch('/api/crawl', {
       method: 'POST', // 显式声明 POST 方法
       body: new URLSearchParams({ bv: bv }) // 生成 form-data 格式的参数
     })

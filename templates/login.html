@@ -149,6 +149,7 @@
         document.getElementById("qrcode").src =
             "/api/qrcode_image?url=" + encodeURIComponent(data.url);
 
+        // 轮询前端的状态
         poll();
     }
 

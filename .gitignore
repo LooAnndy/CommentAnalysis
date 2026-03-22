@@ -16,7 +16,6 @@ conda-env/
 
 # comment output
 *.csv
-fuck.csv
 
 # logs
 *.log
