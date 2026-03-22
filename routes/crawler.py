@@ -6,10 +6,12 @@ from bili_crawler import BiliCrawler
 
 crawler_bp = Blueprint("crawler", __name__)
 
+# 返回文件流
 @crawler_bp.route("/crawl", methods=["POST"])
 def crawl():
     #爬取接口（提交 BV 号）
     bv = request.form.get("bv")
+    print(bv)
     if not bv:
         return "请输入 BV 号"
 
@@ -17,7 +19,7 @@ def crawl():
     crawler.run()
 
     # 爬取文件csv
-    filename = DATA_DIR / f"bilibili_comments_{bv}.csv"
+    filename = DATA_DIR / f"{bv}.csv"
 
     if not os.path.exists(filename):
         return "文件生成失败"

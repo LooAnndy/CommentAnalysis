@@ -4,12 +4,12 @@
     <meta charset="utf-8">
     <title>B站评论分析</title>
 
-    <!-- 引入 ECharts -->
+    <!-- ECharts -->
     <script src="/static/js/echarts.min.js"></script>
 
     <style>
         body {
-            font-family: Arial;
+            font-family: Arial,serif;
             margin: 40px;
         }
 
@@ -33,48 +33,70 @@
 </head>
 
 <body>
+<div class="mainpart">
+    <h2>B站评论爬虫 + 热度分析</h2>
 
-<h2>B站评论爬虫 + 热度分析</h2>
+    <!-- 输入：新BV -->
+    <input type="text" id="bvInput" placeholder="输入新BV">
 
-<!-- 输入 BV -->
-<input type="text" id="bvInput" placeholder="输入BV号">
+    <button onclick="crawl()">开始爬取并下载</button>
+    <button onclick="loadChart()">查看热度趋势</button>
 
-<!-- 爬虫按钮 -->
-<button onclick="crawl()">开始爬取并下载</button>
+    <!-- 下拉：已有BV -->
+    <select id="bvSelect" onchange="selectBV()">
+        <option value="">选择已有BV</option>
+    </select>
 
-<!-- 分析按钮 -->
-<button onclick="loadChart()">查看热度趋势</button>
-
-<!-- 图表容器 -->
-<div id="chart"></div>
+    <div id="chart"></div>
+</div>
 
 <script>
-let chart = echarts.init(document.getElementById('chart'))
+// 获取本地的bv
+function loadBVList() {
+    fetch('/api/bv_list')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById("bvSelect")
+            select.innerHTML = "<option value=\"\">选择已有BV</option>";
+
+            data.forEach(bv => {
+                const option = document.createElement("option");
+                option.value = bv;
+                option.textContent = bv;
+                select.appendChild(option);
+            });
+        });
+}
+
+function selectBV() {
+    document.getElementById("bvInput").value
+        = document.getElementById("bvSelect").value
+}
 
 // 🕷️ 爬虫
 function crawl() {
-    const bv = document.getElementById("bvInput").value
+    const bv = document.getElementById("bvInput").value;
 
-    if (!bv) {
-        alert("请输入BV号")
-        return
-    }
+    fetch('/crawl', {
+      method: 'POST', // 显式声明 POST 方法
+      body: new URLSearchParams({ bv: bv }) // 生成 form-data 格式的参数
+    })
+    .then(data => {
+        alert("爬取完成");
 
-    // 用 form 方式触发下载
-    const form = document.createElement("form")
-    form.method = "POST"
-    form.action = "/crawl"
+        // 刷新列表
+        loadBVList();
 
-    const input = document.createElement("input")
-    input.name = "bv"
-    input.value = bv
-
-    form.appendChild(input)
-    document.body.appendChild(form)
-    form.submit()
+        // 选中刚刚的 BV
+        setTimeout(() => {
+            document.getElementById("bvSelect").value = bv;
+        }, 200);
+    });
 }
 
-// 📊 加载图表
+let chart = echarts.init(document.getElementById('chart'))
+
+// 加载图表
 async function loadChart() {
     const bv = document.getElementById("bvInput").value
 
@@ -113,6 +135,9 @@ async function loadChart() {
         }]
     })
 }
+
+// 页面初始化
+window.onload = loadBVList;
 
 // 自适应窗口
 window.addEventListener("resize", () => {

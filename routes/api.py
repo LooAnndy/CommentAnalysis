@@ -81,6 +81,14 @@ def check_login():
         return {"status": "waiting"}  # 未扫码
 
 
+# 获取现有的所有bv文件名
+@api_bp.route("/bv_list")
+def get_bv_list():
+    file_name = list(DATA_DIR.glob("*.csv"))
+    bv_name = [str(f)[-16:-4] for f in file_name]
+    return bv_name
+
+
 @api_bp.route("/heat_analysis", methods=["GET"])
 def heat_analysis():
     import pandas as pd
@@ -108,7 +116,6 @@ def heat_analysis():
     df = df.dropna(subset=["time"])
 
     # 按照天数排序统计评论数量
-
     # 每天评论数量
     daily = df.groupby(df["time"].dt.date).size()
     daily = daily.sort_index()
