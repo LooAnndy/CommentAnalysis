@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>登录</title>
 
@@ -23,26 +24,26 @@
             background: rgba(0, 0, 0, 0.3);
         }
 
-        /* 毛玻璃大卡片 */
         .card {
-            display: flex;
-            width: 700px;
+            /* 随内容收缩和扩展 */
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+
             backdrop-filter: blur(15px);
             background: rgba(255, 255, 255, 0.1);
             border-radius: 20px;
-            padding: 30px;
+
+            /* 周围一圈的大小 */
+            padding: 40px;
+
             color: white;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
-
-        /* 左右布局 */
-        .left, .right {
+        
+        .qrPart {
             flex: 1;
             padding: 20px;
-        }
-
-        .left {
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         h3 {
@@ -71,9 +72,8 @@
         button:hover {
             background: #ffffff55;
         }
-
-        /* 二维码区域 */
-        .right {
+        
+        .qrPart {
             text-align: center;
         }
 
@@ -92,69 +92,62 @@
 
 <body>
 
-<div class="card">
+    <div class="card">
 
-    <!-- 左：账号密码 -->
-    <div class="left">
-        <h3>账号登录</h3>
 
-        <input type="text" placeholder="用户名">
-        <input type="password" placeholder="密码">
+        <!-- 扫码登录 -->
+        <div class="qrPart">
+            <h3>扫码登录</h3>
 
-        <button>登录</button>
+            <img id="qrcode" width="180">
+
+            <p id="status">等待扫码...</p>
+        </div>
+
     </div>
 
-    <!-- 右：扫码 -->
-    <div class="right">
-        <h3>扫码登录</h3>
+    <script>
+        // 短轮询2s
+        async function poll() {
+            const timer = setInterval(async () => {
+                const res = await fetch(`/api/check_login`);
+                const data = await res.json();
 
-        <img id="qrcode" width="180">
+                const statusText = document.getElementById("status");
 
-        <p id="status">等待扫码...</p>
-    </div>
+                if (data.status === "success") {
+                    statusText.innerText = "登录成功！";
+                    clearInterval(timer);
+                    // 跳转主页面
+                    window.location.href = "/";
+                } else if (data.status === "expired") {
+                    statusText.innerText = "二维码过期，请刷新";
+                    clearInterval(timer);
+                    init()
+                } else if (data.status === "scanned") {
+                    statusText.innerText = "已扫码，请在手机确认";
+                } else {
+                    statusText.innerText = "等待扫码...";
+                }
 
-</div>
+            }, 2000);
+        }
 
-<script>
-    // 短轮询2s
-    async function poll() {
-        const timer = setInterval(async () => {
-            const res = await fetch(`/api/check_login`);
+        // 获取二维码
+        async function init() {
+            const res = await fetch("/api/qrcode_data");
             const data = await res.json();
 
-            const statusText = document.getElementById("status");
+            document.getElementById("qrcode").src =
+                "/api/qrcode_image?url=" + encodeURIComponent(data.url);
 
-            if (data.status === "success") {
-                statusText.innerText = "登录成功！";
-                clearInterval(timer);
-                // 跳转主页面
-                window.location.href = "/";
-            } else if (data.status === "expired") {
-                statusText.innerText = "二维码过期，请刷新";
-                clearInterval(timer);
-            } else if (data.status === "scanned") {
-                statusText.innerText = "已扫码，请在手机确认";
-            } else {
-                statusText.innerText = "等待扫码...";
-            }
+            // 轮询前端的状态
+            poll();
+        }
 
-        }, 2000);
-    }
-
-    // 获取二维码
-    async function init() {
-        const res = await fetch("/api/qrcode_data");
-        const data = await res.json();
-
-        document.getElementById("qrcode").src =
-            "/api/qrcode_image?url=" + encodeURIComponent(data.url);
-
-        // 轮询前端的状态
-        poll();
-    }
-
-    init();
-</script>
+        init();
+    </script>
 
 </body>
+
 </html>
