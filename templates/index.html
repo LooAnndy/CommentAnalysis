@@ -47,6 +47,14 @@
         <option value="">选择已有BV</option>
     </select>
 
+    <!-- HTML爬取进度条 -->
+    <div id="progressBox" style="display:none; margin-top:20px;">
+        <div style="background:#eee; border-radius:10px;">
+            <div id="bar" style="width:0%; height:20px; background:#4facfe;"></div>
+        </div>
+        <p id="text">0%</p>
+    </div>
+
     <div id="chart"></div>
 </div>
 
@@ -75,25 +83,45 @@ function selectBV() {
         = document.getElementById("bvSelect").value
 }
 
+
+
 // 爬虫接口
-function crawl() {
+async function crawl() {
     const bv = document.getElementById("bvInput").value;
 
-    fetch('/api/crawl', {
+    await fetch('/crawl/start', {
       method: 'POST', // 显式声明 POST 方法
       body: new URLSearchParams({ bv: bv }) // 生成 form-data 格式的参数
-    })
-    .then(data => {
-        alert("爬取完成");
-
-        // 刷新列表
-        loadBVList();
-
-        // 选中刚刚的 BV
-        setTimeout(() => {
-            document.getElementById("bvSelect").value = bv;
-        }, 200);
     });
+
+    document.getElementById("progressBox").style.display = "block";
+
+    pollProgress(bv);
+}
+
+// 查询
+function pollProgress(bv) {
+    const timer = setInterval(async () => {
+        const res = await fetch(`/crawl/progress?bv=${bv}`);
+        const data = await res.json();
+
+        if (data.error){
+            clearInterval(timer);
+            return;
+        }
+
+        document.getElementById("bar").style.width = data.percent + "%";
+        document.getElementById("text").innerText =
+            `${data.fetched}/${data.total} (${data.percent}%)`;
+
+        if (data.status === "done") {
+            clearInterval(timer);
+
+            document.getElementById("text").innerText = "完成！";
+            loadBVList()
+        }
+
+    }, 1000);
 }
 
 let chart = echarts.init(document.getElementById('chart'))

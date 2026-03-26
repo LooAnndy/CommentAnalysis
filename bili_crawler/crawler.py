@@ -20,14 +20,16 @@ class BiliCrawler:
     - 楼中楼评论爬取
     - 断点续爬 (实现比较粗糙，有少量评论会重复爬取）
     """
-    def __init__(self, bv):
+    def __init__(self, bv, progress_callback=None):
         """
         初始化爬虫
 
         Args:
             bv (str): 视频BV号
+            progress_callback (func): 进度反馈函数
         """
         self.bv = bv
+        self.progress_callback = progress_callback
 
         # read cookie
         with open(COOKIE_FILE, "r") as f:
@@ -36,6 +38,7 @@ class BiliCrawler:
 
         self.aid = bv2av(bv)
         self.session = requests.Session()
+        # 不使用外部的代理
         self.session.trust_env = False
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -44,12 +47,10 @@ class BiliCrawler:
         # 每页楼中楼评论数量
         self.ps = 20
 
-        # 评论总数（运行时爬取）
-        self.total_comments = 0
-
         # 爬虫状态
         self.state: Dict[str, Any] = {
             "next_page": 1,                # 当前主评论页
+            "total_comments": 0,              # 评论总数（运行时爬取）
             "comments_have_fetched": 0,    # 已爬评论数
             "last_rpid": 0,                # 最后一个评论ID
             "sub_progress": None           # dict, 楼中楼进度
@@ -60,7 +61,18 @@ class BiliCrawler:
         # 楼中楼API
         self.url_reply = "https://api.bilibili.com/x/v2/reply/reply"
 
-    # return inner comment count
+    def report_progress(self):
+        if not self.progress_callback:
+            return
+
+        total = self.state.get("total_comments", 0)
+        fetched = self.state.get("comments_have_fetched", 0)
+
+        percent = int(100 * fetched / total) if total > 0 else 0
+
+        print(f'craw: {fetched} / {total} comments')
+        self.progress_callback(self.bv, fetched, total, percent)
+
     def fetch_page(self, writer: CommentWriter, url: str, params: dict) -> Tuple[dict, bool]:
         """
         爬取一页评论
@@ -145,9 +157,9 @@ class BiliCrawler:
                 "oid": self.aid,
                 "mode": 3  # time order
             }).json()
-            self.total_comments = data["data"]["cursor"]["all_count"]
+            self.state["total_comments"] = data["data"]["cursor"]["all_count"]
 
-            print(f"总共有 {self.total_comments} 条评论")
+            print(f"总共有 {self.state['total_comments']} 条评论")
 
             # 加载断点进度
             rom = manager.load_progress(self.bv)
@@ -155,12 +167,10 @@ class BiliCrawler:
                 self.state = rom
                 print("loaded ", rom)
             else:
-                self.state = {
-                    "next_page": 1,
-                    "comments_have_fetched": 0,
-                    "last_rpid": -1,
-                    "sub_progress": None
-                }
+                self.state["next_page"] = 1
+                self.state["comments_have_fetched"] = 0
+                self.state["last_rpid"] = -1
+                self.state["sub_progress"] = None
 
             while True:
                 sub_replies, has_page = self.fetch_page(writer, self.url_main, {
@@ -176,13 +186,13 @@ class BiliCrawler:
                 for rpid, count in sub_replies.items():
 
                     print("发现楼中楼:", count)
-                    total_pages = math.ceil(count / max(1.0, self.ps))
+                    total_comments = math.ceil(count / max(1.0, self.ps))
 
                     start_pn = 1
                     if self.state["sub_progress"] and self.state["sub_progress"].get("root") == rpid:
                         start_pn = self.state["sub_progress"]["pn"] + 1
 
-                    for pn in range(start_pn, total_pages + 1):
+                    for pn in range(start_pn, total_comments + 1):
 
                         self.fetch_page(writer, self.url_reply, {
                             "type": 1,
@@ -201,9 +211,12 @@ class BiliCrawler:
                         time.sleep(random.uniform(0.2, 0.5))
 
                 self.state["next_page"] += 1
+                # 报告进度
+                self.report_progress()
+                self.state["sub_progress"] = None
+
                 print("当前已爬:", self.state["comments_have_fetched"])
 
-                self.state["sub_progress"] = None
                 time.sleep(random.uniform(0.7, 1.2))
 
             print("爬取完成，总评论:", self.state["comments_have_fetched"])
