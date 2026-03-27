@@ -107,7 +107,8 @@
     </div>
 
     <script>
-        // 短轮询2s
+
+        // 短轮询是否登录2s
         async function poll() {
             const timer = setInterval(async () => {
                 const res = await fetch(`/api/check_login`);

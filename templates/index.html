@@ -96,30 +96,25 @@ async function crawl() {
 
     document.getElementById("progressBox").style.display = "block";
 
-    pollProgress(bv);
+    pollProgress();
 }
 
-// 查询
-function pollProgress(bv) {
+// 查询现在的爬取进度
+function pollProgress() {
     const timer = setInterval(async () => {
-        const res = await fetch(`/crawl/progress?bv=${bv}`);
+        const res = await fetch(`/crawl/progress`);
         const data = await res.json();
 
-        if (data.error){
+        if (data.current_BV == null){
+            document.getElementById("text").innerText = "完成！";
             clearInterval(timer);
             return;
         }
 
         document.getElementById("bar").style.width = data.percent + "%";
         document.getElementById("text").innerText =
-            `${data.fetched}/${data.total} (${data.percent}%)`;
-
-        if (data.status === "done") {
-            clearInterval(timer);
-
-            document.getElementById("text").innerText = "完成！";
-            loadBVList()
-        }
+            `crawling: ${data.current_BV} have fetched: ${data.fetched}/${data.total} (${data.percent}%)`;
+        loadBVList()
 
     }, 1000);
 }

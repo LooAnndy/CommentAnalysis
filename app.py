@@ -4,7 +4,7 @@ from flask import Flask
 from routes.auth import auth_bp
 from routes.api import api_bp
 from routes.views import view_bp
-from routes.crawl import crawl_bp
+from routes.crawl import crawl_bp, start_background_thread
 
 
 app = Flask(__name__)
@@ -20,4 +20,6 @@ app.register_blueprint(crawl_bp)
 
 
 if __name__ == "__main__":
+    # 启用爬取BV多线程
+    start_background_thread()
     app.run(debug=True)
