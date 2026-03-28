@@ -3,60 +3,161 @@
 <head>
     <meta charset="utf-8">
     <title>B站评论分析</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- ECharts -->
     <script src="/static/js/echarts.min.js"></script>
 
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial,serif;
-            margin: 40px;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background-color: #f5f7fa;
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1600px; /* 超宽！PC专用 */
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 50px 60px;
+        }
+
+        .title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 40px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* 控制面板 */
+        .control-group {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 35px;
         }
 
         input {
-            padding: 8px;
-            width: 250px;
+            padding: 12px 16px;
+            width: 380px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: border 0.3s;
+        }
+
+        input:focus {
+            border-color: #4facfe;
         }
 
         button {
-            padding: 8px 15px;
-            margin-left: 10px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 15px;
+            transition: background 0.3s;
         }
 
+        .btn-primary {
+            background-color: #4facfe;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #3b9bef;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        select {
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            min-width: 260px;
+        }
+
+        /* 进度条 */
+        #progressBox {
+            margin: 30px 0;
+            display: none;
+        }
+
+        .progress-bar-bg {
+            background: #f1f1f1;
+            border-radius: 10px;
+            height: 24px;
+            overflow: hidden;
+        }
+
+        #bar {
+            height: 100%;
+            background: #4facfe;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        #text {
+            margin-top: 8px;
+            font-size: 15px;
+            color: #555;
+        }
+
+        /* 图表样式 */
         #chart {
             margin-top: 40px;
-            width: 900px;
-            height: 500px;
+            width: 100%;
+            height: 650px; /* 更高 */
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eee;
         }
     </style>
 </head>
 
 <body>
-<div class="mainpart">
-    <h2>B站评论爬虫 + 热度分析</h2>
+    <div class="container">
+        <h2 class="title">B站评论爬虫 + 热度分析</h2>
 
-    <!-- 输入：新BV -->
-    <input type="text" id="bvInput" placeholder="输入新BV">
-
-    <button onclick="crawl()">开始爬取并下载</button>
-    <button onclick="loadChart()">查看热度趋势</button>
-
-    <!-- 下拉：已有BV -->
-    <select id="bvSelect" onchange="selectBV()">
-        <option value="">选择已有BV</option>
-    </select>
-
-    <!-- HTML爬取进度条 -->
-    <div id="progressBox" style="display:none; margin-top:20px;">
-        <div style="background:#eee; border-radius:10px;">
-            <div id="bar" style="width:0%; height:20px; background:#4facfe;"></div>
+        <!-- 控制面板 -->
+        <div class="control-group">
+            <input type="text" id="bvInput" placeholder="请输入BV号">
+            <button class="btn-primary" onclick="crawl()">开始爬取并下载</button>
+            <button class="btn-secondary" onclick="loadChart()">查看热度趋势</button>
+            <select id="bvSelect" onchange="selectBV()"></select>
         </div>
-        <p id="text">0%</p>
-    </div>
 
-    <div id="chart"></div>
-</div>
+        <!-- 进度条 -->
+        <div id="progressBox">
+            <div class="progress-bar-bg">
+                <div id="bar"></div>
+            </div>
+            <p id="text">0%</p>
+        </div>
+
+        <!-- 图表 -->
+        <div id="chart"></div>
+    </div>
 
 <script>
 // 获取本地的bv
@@ -83,19 +184,16 @@ function selectBV() {
         = document.getElementById("bvSelect").value
 }
 
-
-
 // 爬虫接口
 async function crawl() {
     const bv = document.getElementById("bvInput").value;
 
     await fetch('/crawl/start', {
-      method: 'POST', // 显式声明 POST 方法
-      body: new URLSearchParams({ bv: bv }) // 生成 form-data 格式的参数
+      method: 'POST',
+      body: new URLSearchParams({ bv: bv })
     });
 
     document.getElementById("progressBox").style.display = "block";
-
     pollProgress();
 }
 
@@ -113,7 +211,7 @@ function pollProgress() {
 
         document.getElementById("bar").style.width = data.percent + "%";
         document.getElementById("text").innerText =
-            `crawling: ${data.current_BV} have fetched: ${data.fetched}/${data.total} (${data.percent}%)`;
+            `正在爬取BV号: ${data.current_BV} 爬取进度: ${data.fetched}/${data.total} (${data.percent}%)`;
         loadBVList()
 
     }, 1000);

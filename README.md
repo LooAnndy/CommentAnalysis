@@ -28,6 +28,7 @@
 
 ```bash
 git clone https://github.com/LooAnndy/CommentAnalysis.git
+cd ./CommentAnalysis
 ```
 
 ---

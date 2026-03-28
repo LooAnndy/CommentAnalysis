@@ -69,8 +69,6 @@ class BiliCrawler:
         fetched = self.state.get("comments_have_fetched", 0)
 
         percent = int(100 * fetched / total) if total > 0 else 0
-
-        print(f'craw: {fetched} / {total} comments')
         self.progress_callback(self.bv, fetched, total, percent)
 
     def fetch_page(self, writer: CommentWriter, url: str, params: dict) -> Tuple[dict, bool]:
@@ -129,6 +127,8 @@ class BiliCrawler:
             })
 
             self.state["comments_have_fetched"] += 1
+            # 更新进度
+            self.report_progress()
             self.state["last_rpid"] = rpid
 
             # 楼中楼评论的数量
@@ -160,6 +160,8 @@ class BiliCrawler:
             self.state["total_comments"] = data["data"]["cursor"]["all_count"]
 
             print(f"总共有 {self.state['total_comments']} 条评论")
+            # 初始化进度
+            self.report_progress()
 
             # 加载断点进度
             rom = manager.load_progress(self.bv)
@@ -211,8 +213,6 @@ class BiliCrawler:
                         time.sleep(random.uniform(0.2, 0.5))
 
                 self.state["next_page"] += 1
-                # 报告进度
-                self.report_progress()
                 self.state["sub_progress"] = None
 
                 print("当前已爬:", self.state["comments_have_fetched"])
