@@ -1,5 +1,11 @@
 import time
 import requests
+import signal
+import sys
+import functools
+import traceback
+
+
 # BV转AV号的一些常数
 XOR_CODE = 23442827791579
 MASK_CODE = 2251799813685247
@@ -63,3 +69,65 @@ def safe_get(session,  url, params):
         time.sleep(2)
 
     raise Exception("请求失败3次")
+
+
+def graceful_shutdown(func):
+    """
+    给长时间运行任务添加优雅退出能力：
+    - Ctrl+C 自动保存（仅主线程）
+    - kill 自动保存 (Linux/Mac，仅主线程)
+    - 抛异常自动保存
+    - 正常结束自动保存
+
+    要求对象里存在：
+        self.manager
+        self.writer
+        self.bv
+        self.state
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+
+        # ===== 退出信号处理函数 =====
+        def _exit(signum, frame):
+            print(f"\n收到退出信号({signum})，正在保存进度...")
+            _save(self)
+            sys.exit(0)
+
+        # 只在主线程注册信号（子线程不支持 signal）
+        import threading
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, _exit)   # Ctrl+C
+            # Windows 不支持 SIGTERM
+            if hasattr(signal, 'SIGTERM'):
+                signal.signal(signal.SIGTERM, _exit)  # kill / 进程终止
+
+        try:
+            return func(self, *args, **kwargs)
+
+        except Exception as e:
+            print("\n程序异常退出：", e)
+            traceback.print_exc()
+            raise
+
+        finally:
+            print("\n执行 finally：保存进度")
+            _save(self)
+
+    return wrapper
+
+
+def _save(self):
+    """真正执行保存逻辑（避免重复写）"""
+    try:
+        if hasattr(self, "manager") and hasattr(self, "state"):
+            self.manager.save_progress(self.bv, self.state)
+            print("进度已保存")
+
+        if hasattr(self, "writer"):
+            self.writer.close()
+            print("CSV已关闭")
+
+    except Exception as e:
+        print("⚠ 保存失败：", e)

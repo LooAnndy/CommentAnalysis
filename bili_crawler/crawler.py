@@ -7,7 +7,7 @@ from typing import Dict, Any, Tuple, Optional
 
 from config.paths import COOKIE_FILE
 
-from .utils import bv2av, safe_get
+from .utils import bv2av, safe_get, graceful_shutdown
 from .writer import CommentWriter
 from .progressManager import ProgressManager
 
@@ -137,6 +137,7 @@ class BiliCrawler:
 
         return sub_replies, True
 
+    @graceful_shutdown
     def run(self):
         """运行爬虫主流程
 
@@ -147,8 +148,8 @@ class BiliCrawler:
             4. 爬取楼中楼评论
             5. 保存进度
         """
-        manager = ProgressManager()
-        writer = CommentWriter(f"{self.bv}.csv")
+        self.manager = ProgressManager()
+        self.writer = CommentWriter(f"{self.bv}.csv")
         try:
             # 获取评论总数
             data = safe_get(self.session, self.url_main, {
@@ -164,7 +165,7 @@ class BiliCrawler:
             self.report_progress()
 
             # 加载断点进度
-            rom = manager.load_progress(self.bv)
+            rom = self.manager.load_progress(self.bv)
             if rom:
                 self.state = rom
                 print("loaded ", rom)
@@ -175,7 +176,7 @@ class BiliCrawler:
                 self.state["sub_progress"] = None
 
             while True:
-                sub_replies, has_page = self.fetch_page(writer, self.url_main, {
+                sub_replies, has_page = self.fetch_page(self.writer, self.url_main, {
                     "next": self.state["next_page"],
                     "type": 1,
                     "oid": self.aid,
@@ -196,7 +197,7 @@ class BiliCrawler:
 
                     for pn in range(start_pn, total_comments + 1):
 
-                        self.fetch_page(writer, self.url_reply, {
+                        self.fetch_page(self.writer, self.url_reply, {
                             "type": 1,
                             "oid": self.aid,
                             "ps": self.ps,
@@ -228,10 +229,6 @@ class BiliCrawler:
             # 打印错误堆栈
             import traceback
             traceback.print_exc()
-        finally:
-            manager.save_progress(self.bv, self.state)
-            writer.close()
-            print(f"完成，爬取了{self.state['comments_have_fetched']}条信息")
 
 
 if __name__ == "__main__":

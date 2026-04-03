@@ -2,6 +2,7 @@ from flask import Blueprint, request, send_file
 import threading
 from queue import Queue
 import time
+import atexit
 
 from config.paths import DATA_DIR
 
@@ -10,6 +11,27 @@ crawl_bp = Blueprint("crawl", __name__, url_prefix="/crawl")
 task_queue = Queue()   # 任务队列
 BV_progress = {}       # 进度表
 current_BV = None      # 当前爬取的BV号
+current_crawler = None  # 当前运行的爬虫实例
+
+
+def _cleanup_on_exit():
+    """Flask 退出时保存当前爬虫进度"""
+    global current_crawler
+    if current_crawler is not None:
+        print("\nFlask 退出，正在保存爬虫进度...")
+        try:
+            if hasattr(current_crawler, 'manager') and hasattr(current_crawler, 'state'):
+                current_crawler.manager.save_progress(current_crawler.bv, current_crawler.state)
+                print("进度已保存")
+            if hasattr(current_crawler, 'writer'):
+                current_crawler.writer.close()
+                print("CSV已关闭")
+        except Exception as e:
+            print(f"⚠ 保存失败: {e}")
+
+
+# 注册退出钩子
+atexit.register(_cleanup_on_exit)
 
 
 def update_progress(bv, fetched, total, percent):
@@ -28,19 +50,20 @@ def background_worker():
     """
     独立后台线程，无限从队列取任务执行
     """
-    global current_BV
+    global current_BV, current_crawler
 
     from bili_crawler import BiliCrawler
     while True:
         try:
             # 从队列拿一个任务（没有任务就阻塞等待）
             current_BV = None
+            current_crawler = None
             bv = task_queue.get()
             current_BV = bv
 
             # 开始执行爬虫
-            crawler = BiliCrawler(bv, update_progress)
-            crawler.run()
+            current_crawler = BiliCrawler(bv, update_progress)
+            current_crawler.run()
 
             # 标记任务完成
             task_queue.task_done()
