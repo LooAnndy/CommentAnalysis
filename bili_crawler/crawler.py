@@ -3,7 +3,7 @@ import time
 import random
 import math
 import json
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple
 
 from config.paths import COOKIE_FILE
 
@@ -99,31 +99,36 @@ class BiliCrawler:
         sub_replies = {}
 
         for reply in replies:
-            # 评论ID
+
             rpid = reply["rpid"]
-
-            # 用户名
             user = reply["member"]["uname"]
-
-            # 评论内容
             message = reply["content"]["message"]
-
-            # 点赞数
             like = reply["like"]
-
+            mid = reply["member"]["mid"]
+            level = reply["member"]["level_info"]["current_level"]
+            location = reply.get("reply_control", {}).get("location", "未知")  # 有的评论可能没带位置
+            rcount = reply["rcount"]
             # 评论时间
             timestamp = reply["ctime"]
             comment_time = time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(timestamp)
             )
+            root = reply["root"]
+            parent = reply["parent"]
 
-            # 写入爬取数据
             writer.write({
-                "user": user,
-                "comment": message,
-                "likes": like,
-                "time": comment_time
+                "rpid": rpid,           # 评论唯一ID (Reply ID)
+                "mid": mid,             # 发布者UID (User ID)
+                "user": user,           # 发布者昵称
+                "level": level,         # 发布者等级
+                "location": location,   # IP属地
+                "comment": message,     # 评论正文内容
+                "likes": like,          # 获赞数
+                "replies": rcount,      # 子评论总数 (该楼层下的回复数)
+                "time": comment_time,   # 发布时间 (yyyy-mm-dd hh:mm:ss)
+                "root": root,           # 根评论ID (若为0则本身是根评论)
+                "parent": parent        # 父评论ID (被回复者的rpid)
             })
 
             self.state["comments_have_fetched"] += 1
@@ -229,10 +234,3 @@ class BiliCrawler:
             # 打印错误堆栈
             import traceback
             traceback.print_exc()
-
-
-if __name__ == "__main__":
-    # BV号
-    BV = "BV1KxNPzSEhF"
-    crawler = BiliCrawler(BV)
-    crawler.run()
