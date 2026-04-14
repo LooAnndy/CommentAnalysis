@@ -106,48 +106,7 @@
 
     </div>
 
-    <script>
-
-        // 短轮询是否登录2s
-        async function poll() {
-            const timer = setInterval(async () => {
-                const res = await fetch(`/api/check_login`);
-                const data = await res.json();
-
-                const statusText = document.getElementById("status");
-
-                if (data.status === "success") {
-                    statusText.innerText = "登录成功！";
-                    clearInterval(timer);
-                    // 跳转主页面
-                    window.location.href = "/";
-                } else if (data.status === "expired") {
-                    statusText.innerText = "二维码过期，请刷新";
-                    clearInterval(timer);
-                    init()
-                } else if (data.status === "scanned") {
-                    statusText.innerText = "已扫码，请在手机确认";
-                } else {
-                    statusText.innerText = "等待扫码...";
-                }
-
-            }, 2000);
-        }
-
-        // 获取二维码
-        async function init() {
-            const res = await fetch("/api/qrcode_data");
-            const data = await res.json();
-
-            document.getElementById("qrcode").src =
-                "/api/qrcode_image?url=" + encodeURIComponent(data.url);
-
-            // 轮询前端的状态
-            poll();
-        }
-
-        init();
-    </script>
+    <script type="module" src="/static/js/pages/login.js"></script>
 
 </body>
 
