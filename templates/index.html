@@ -2,271 +2,81 @@
 <html lang="zh">
 <head>
     <meta charset="utf-8">
-    <title>B站评论分析</title>
+    <title>B站评论多维对比看板</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- ECharts -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
     <script src="/static/js/echarts.min.js"></script>
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: "Microsoft YaHei", Arial, sans-serif;
-            background-color: #f5f7fa;
-            padding: 30px 20px;
-            display: flex;
-            justify-content: center;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1600px; /* 超宽！PC专用 */
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            padding: 50px 60px;
-        }
-
-        .title {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 40px;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        /* 控制面板 */
-        .control-group {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            margin-bottom: 35px;
-        }
-
-        input {
-            padding: 12px 16px;
-            width: 380px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 15px;
-            outline: none;
-            transition: border 0.3s;
-        }
-
-        input:focus {
-            border-color: #4facfe;
-        }
-
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 15px;
-            transition: background 0.3s;
-        }
-
-        .btn-primary {
-            background-color: #4facfe;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #3b9bef;
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        select {
-            padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 15px;
-            outline: none;
-            min-width: 260px;
-        }
-
-        /* 进度条 */
-        #progressBox {
-            margin: 30px 0;
-            display: none;
-        }
-
-        .progress-bar-bg {
-            background: #f1f1f1;
-            border-radius: 10px;
-            height: 24px;
-            overflow: hidden;
-        }
-
-        #bar {
-            height: 100%;
-            background: #4facfe;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        #text {
-            margin-top: 8px;
-            font-size: 15px;
-            color: #555;
-        }
-
-        /* 图表样式 */
-        #chart {
-            margin-top: 40px;
-            width: 100%;
-            height: 650px; /* 更高 */
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #eee;
-        }
-    </style>
 </head>
-
 <body>
-    <div class="container">
-        <h2 class="title">B站评论爬虫 + 热度分析</h2>
-
-        <!-- 控制面板 -->
-        <div class="control-group">
-            <input type="text" id="bvInput" placeholder="请输入BV号">
-            <button class="btn-primary" onclick="crawl()">开始爬取并下载</button>
-            <button class="btn-secondary" onclick="loadChart()">查看热度趋势</button>
-            <select id="bvSelect" onchange="selectBV()"></select>
-        </div>
-
-        <!-- 进度条 -->
-        <div id="progressBox">
-            <div class="progress-bar-bg">
-                <div id="bar"></div>
+    <main class="dashboard">
+        <header class="top-bar card">
+            <div class="top-title">
+                <h1>B站评论多维对比看板</h1>
+                <p>Google Trends 风格框架（前端/JS骨架）</p>
             </div>
-            <p id="text">0%</p>
-        </div>
+            <div class="top-actions">
+                <input id="bvInput" type="text" placeholder="输入 BV 号后点击添加">
+                <button id="addBvBtn" class="btn-primary">添加对比</button>
+                <button id="crawlBtn" class="btn-secondary">抓取数据</button>
+                <button id="refreshBtn" class="btn-secondary">刷新看板</button>
+            </div>
+            <div class="top-filters">
+                <select id="sourceSelect">
+                    <option value="">从本地历史选择 BV</option>
+                </select>
+                <select id="trendModeSelect">
+                    <option value="count">绝对评论数</option>
+                    <option value="percent">百分比热度</option>
+                </select>
+                <select id="timeGranularitySelect">
+                    <option value="day">按天</option>
+                    <option value="hour">按小时</option>
+                </select>
+            </div>
+            <div id="tagList" class="tag-list"></div>
+            <div id="progressBox" class="progress-box" hidden>
+                <div class="progress-bar-bg">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <p id="progressText">等待任务...</p>
+            </div>
+        </header>
 
-        <!-- 图表 -->
-        <div id="chart"></div>
-    </div>
+        <section class="grid-board">
+            <article class="card card-trend">
+                <div class="card-header">
+                    <h2>时间轴热度对比</h2>
+                    <span>支持缩放联动（预留）</span>
+                </div>
+                <div id="trendChart" class="chart-box"></div>
+            </article>
 
-<script>
-// 获取本地的bv
-function loadBVList() {
-    fetch('/api/bv_list')
-        .then(res => res.json())
-        .then(data => {
-            const select = document.getElementById("bvSelect")
-            select.innerHTML = "<option value=\"\">选择已有BV</option>";
+            <article class="card card-geo">
+                <div class="card-header">
+                    <h2>地理分布</h2>
+                    <span>地图热力（预留）</span>
+                </div>
+                <div id="geoChart" class="chart-box"></div>
+            </article>
 
-            // 动态添加option
-            data.forEach(bv => {
-                const option = document.createElement("option");
-                option.value = bv;
-                option.textContent = bv;
-                select.appendChild(option);
-            });
-        });
-}
+            <article class="card card-wordcloud">
+                <div class="card-header">
+                    <h2>词云对比</h2>
+                    <span>多 BV 并排（预留）</span>
+                </div>
+                <div id="wordcloudChart" class="chart-box"></div>
+            </article>
 
-// 下拉选择并填入输入框
-function selectBV() {
-    document.getElementById("bvInput").value
-        = document.getElementById("bvSelect").value
-}
+            <article class="card card-level">
+                <div class="card-header">
+                    <h2>用户等级分布</h2>
+                    <span>堆叠柱图（预留）</span>
+                </div>
+                <div id="levelChart" class="chart-box"></div>
+            </article>
+        </section>
+    </main>
 
-// 爬虫接口
-async function crawl() {
-    const bv = document.getElementById("bvInput").value;
-
-    await fetch('/crawl/start', {
-      method: 'POST',
-      body: new URLSearchParams({ bv: bv })
-    });
-
-    document.getElementById("progressBox").style.display = "block";
-    pollProgress();
-}
-
-// 查询现在的爬取进度
-function pollProgress() {
-    const timer = setInterval(async () => {
-        const res = await fetch(`/crawl/progress`);
-        const data = await res.json();
-
-        if (data.current_BV == null){
-            document.getElementById("text").innerText = "完成！";
-            clearInterval(timer);
-            return;
-        }
-
-        document.getElementById("bar").style.width = data.percent + "%";
-        document.getElementById("text").innerText =
-            `正在爬取BV号: ${data.current_BV} 爬取进度: ${data.fetched}/${data.total} (${data.percent}%)`;
-        loadBVList()
-
-    }, 1000);
-}
-
-let chart = echarts.init(document.getElementById('chart'))
-
-// 加载图表
-async function loadChart() {
-    const bv = document.getElementById("bvInput").value
-
-    if (!bv) {
-        alert("请输入BV号")
-        return
-    }
-
-    const res = await fetch(`/api/heat_analysis?bv=${bv}`)
-    const data = await res.json()
-
-    if (data.error) {
-        alert(data.error)
-        return
-    }
-
-    chart.setOption({
-        title: {
-            text: '评论热度趋势'
-        },
-        tooltip: {
-            trigger: 'axis'
-        },
-        xAxis: {
-            type: 'category',
-            data: data.dates
-        },
-        yAxis: {
-            type: 'value'
-        },
-        series: [{
-            name: '评论数',
-            data: data.counts,
-            type: 'line',
-            smooth: true
-        }]
-    })
-}
-
-// 页面初始化
-window.onload = loadBVList;
-
-// 自适应窗口
-window.addEventListener("resize", () => {
-    chart.resize()
-})
-</script>
-
+    <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>
