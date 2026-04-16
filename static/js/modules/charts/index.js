@@ -1,4 +1,4 @@
-import { appState } from "../state.js";
+import { appState, getBvColor } from "../state.js";
 import {
     fetchGeoCompareData,
     fetchLevelCompareData,
@@ -47,7 +47,10 @@ export function renderDashboardSkeleton() {
     }
 
     if (appState.chartInstances.wordcloud) {
-        appState.chartInstances.wordcloud.setOption(createBaseOption("词云对比（框架占位）"));
+        appState.chartInstances.wordcloud.setOption(
+            buildWordcloudEmptyOption("词云对比（框架占位）"),
+            true
+        );
     }
 
     if (appState.chartInstances.level) {
@@ -95,17 +98,70 @@ function buildBarOption(title, data) {
     };
 }
 
-// 词云暂用“词条数量柱图”作为可视化占位，避免图表区域空白。
-function buildWordcloudFallbackOption(data) {
-    const categories = (data?.series || []).map((item) => item.bv || item.name);
-    const values = (data?.series || []).map((item) => (item.words || []).length);
+function buildWordcloudEmptyOption(title) {
     return {
-        title: { text: "词云对比（接口占位）", left: "center", top: 10, textStyle: { fontSize: 14 } },
-        tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: categories },
-        yAxis: { type: "value" },
-        series: [{ type: "bar", name: "词条数", data: values }],
-        grid: { left: 36, right: 18, top: 48, bottom: 28 },
+        title: { text: title, left: "center", top: 10, textStyle: { fontSize: 14 } },
+        tooltip: { trigger: "item", formatter: (params) => (params?.name ? `${params.name}: ${params.value}` : "") },
+        series: [
+            {
+                type: "wordCloud",
+                left: "center",
+                top: "center",
+                width: "100%",
+                height: "100%",
+                data: [],
+                gridSize: 8,
+                sizeRange: [12, 60],
+                rotationRange: [-90, 90],
+            },
+        ],
+    };
+}
+
+function buildWordcloudOption(wordcloudData) {
+    const bvSeries = Array.isArray(wordcloudData?.series) ? wordcloudData.series : [];
+    if (!bvSeries.length) {
+        return buildWordcloudEmptyOption("词云对比（暂无数据）");
+    }
+
+    const n = bvSeries.length;
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+
+    const wordCloudSeries = bvSeries.map((item, i) => {
+        const bv = item?.bv || `BV${i + 1}`;
+        const color = getBvColor(bv);
+        const words = (item?.words || []).map((w) => ({
+            name: w.name,
+            value: w.value,
+            textStyle: { color },
+        }));
+
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+
+        return {
+            type: "wordCloud",
+            name: bv,
+            data: words,
+            gridSize: 8,
+            sizeRange: [12, 60],
+            rotationRange: [-90, 90],
+            // 使用简单网格平铺展示，满足“多 BV 并排”的 UI 预期。
+            left: `${(col * 100) / cols}%`,
+            top: `${(row * 100) / rows}%`,
+            width: `${100 / cols}%`,
+            height: `${100 / rows}%`,
+        };
+    });
+
+    return {
+        title: { text: "词云对比", left: "center", top: 10, textStyle: { fontSize: 14 } },
+        tooltip: {
+            trigger: "item",
+            formatter: (params) => (params?.name ? `${params.name}: ${params.value}` : ""),
+        },
+        series: wordCloudSeries,
     };
 }
 
@@ -147,9 +203,12 @@ export async function renderChartsWithApi(selectedBvs, options = {}) {
     }
 
     if (wordcloudRes.status === "fulfilled" && appState.chartInstances.wordcloud) {
-        appState.chartInstances.wordcloud.setOption(buildWordcloudFallbackOption(wordcloudRes.value));
+        appState.chartInstances.wordcloud.setOption(buildWordcloudOption(wordcloudRes.value), true);
     } else if (appState.chartInstances.wordcloud) {
-        appState.chartInstances.wordcloud.setOption(createBaseOption("词云对比（接口未就绪）"));
+        appState.chartInstances.wordcloud.setOption(
+            buildWordcloudEmptyOption("词云对比（接口未就绪）"),
+            true
+        );
     }
 
     if (levelRes.status === "fulfilled" && appState.chartInstances.level) {

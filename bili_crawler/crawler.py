@@ -31,6 +31,10 @@ class BiliCrawler:
         self.bv = bv
         self.progress_callback = progress_callback
 
+        # 爬取结果记录管理器
+        self.manager = ProgressManager()
+        self.writer = CommentWriter(f"{self.bv}.csv")
+
         # read cookie
         with open(COOKIE_FILE, "r") as f:
             self.cookie = json.load(f)
@@ -153,8 +157,6 @@ class BiliCrawler:
             4. 爬取楼中楼评论
             5. 保存进度
         """
-        self.manager = ProgressManager()
-        self.writer = CommentWriter(f"{self.bv}.csv")
         try:
             # 获取评论总数
             data = safe_get(self.session, self.url_main, {
