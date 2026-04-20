@@ -1,81 +1,188 @@
-# B站评论爬虫 + 热度分析系统
+# 📺 CommentAnalysis
 
-一个基于 Flask 的 B站评论爬虫与数据分析工具，支持二维码登录、评论抓取以及热度趋势可视化。
+## B站评论爬取与数据分析系统
 
----
-
-## 🚀 功能介绍
-
-* 📱 二维码扫码登录B站
-* 🕷️ 评论爬取（支持BV号）
-* 📊 评论热度趋势分析（按天统计）
-* 📈 图表展示（ECharts）
-* 📁 本地CSV数据存储
+CommentAnalysis 是一个面向 **Bilibili 评论数据洞察** 的综合处理平台。
+它能够将异步爬虫抓取到的原始评论转化为结构化数据，并进一步生成可视化分析图表，实现完整的数据处理闭环。
 
 ---
 
-## 🛠️ 技术栈
+# 🏗️ System Architecture
 
+## 系统架构与模块解析
 
-* Python 3.8
-* Flask
-* requests
-* pandas
-* ECharts（前端）
+项目采用 **分层单体架构（Layered Monolith）**，确保代码具备良好的可维护性与扩展性。
 
 ---
 
-## 📥 获取项目
+## 1️⃣ Entry & Config Layer
+
+### 入口与配置层（The Skeleton）
+
+| 模块                  | 职责                        |
+| ------------------- | ------------------------- |
+| **app.py**          | Flask 应用初始化、蓝图注册、后台守护线程启动 |
+| **config/paths.py** | 统一管理数据目录、Cookie、进度文件路径    |
+
+---
+
+## 2️⃣ Routing Layer
+
+### 路由与通信层（The Nerve Center）
+
+| 模块                         | 职责                        |
+| -------------------------- | ------------------------- |
+| **routes/auth_api.py**     | 扫码登录与状态轮询                 |
+| **routes/crawl.py**        | 爬虫任务调度（task_queue + 进度管理） |
+| **routes/analysis_api.py** | 分析接口，返回图表 JSON            |
+
+---
+
+## 3️⃣ Crawler Engine
+
+### 爬虫核心层（The Engine Room）
+
+| 模块                     | 职责              |
+| ---------------------- | --------------- |
+| **crawler.py**         | 主评论 + 楼中楼抓取     |
+| **writer.py**          | 高性能 CSV 写入      |
+| **progressManager.py** | 断点续爬            |
+| **utils.py**           | 请求重试 / BV→AV 转换 |
+
+---
+
+## 4️⃣ Data Service Layer
+
+### 数据服务层（The Brain）
+
+| 模块                      | 职责             |
+| ----------------------- | -------------- |
+| **analysis_service.py** | Pandas 数据清洗与统计 |
+| **auth_service.py**     | B站登录鉴权封装       |
+
+---
+
+# 🖥️ Operational Demo
+
+## 系统运行流程
+
+---
+
+### 🔐 Step 1 · 登录阶段
+
+访问 `/login` 获取二维码并扫码：
+
+* 请求 B站登录接口生成二维码
+* 登录成功后自动保存 `cookies.json`
+* 页面自动跳转首页
+
+---
+
+### 🕷️ Step 2 · 爬取阶段
+
+输入 BV 号 → 点击 **开始爬取**
+
+实时进度示例：
+
+```text
+正在抓取第 5 页…
+当前进度：45%
+```
+
+后台 `task_queue` 按顺序执行任务。
+
+---
+
+### 📊 Step 3 · 分析阶段
+
+选择 BV → 点击 **热度统计**
+
+自动生成：
+
+* 评论时间趋势折线图
+* IP 属地分布图
+* 用户等级柱状图
+
+---
+
+# 🗺️ Roadmap
+
+## 项目路线图
+
+---
+
+## 🟢 Completed Features
+
+### 已完成功能
+
+| 模块    | 功能      | 说明             |
+| ----- | ------- | -------------- |
+| 登录系统  | 二维码扫码登录 | 支持官方登录流程       |
+| 爬虫系统  | 断点续爬    | 支持异常恢复         |
+| 数据可视化 | 基础图表    | 趋势 / IP / 等级分析 |
+
+---
+
+## 🟡 Data Processing (In Progress)
+
+### 数据处理优化
+
+| 功能   | 说明             |
+| ---- | -------------- |
+| 评论清洗 | 过滤抽奖 / 打卡评论    |
+| 词云优化 | 集成 jieba + 停用词 |
+
+---
+
+## 🔵 NLP Features (Planned)
+
+### NLP 深度分析
+
+| 功能   | 说明      |
+| ---- | ------- |
+| 情感分析 | 正负面趋势识别 |
+| 语义聚类 | 热议话题发现  |
+
+---
+
+## ⚙️ Performance & Storage
+
+### 架构与性能升级
+
+| 功能        | 说明          |
+| --------- | ----------- |
+| 爬虫线程池     | 多 BV 并发抓取   |
+| SQLite 支持 | 从 CSV 迁移数据库 |
+
+---
+
+# 📊 Data Schema
+
+## 评论 CSV 字段规范
+
+| 字段       | 说明    |
+| -------- | ----- |
+| rpid     | 评论 ID |
+| user     | 用户昵称  |
+| location | IP 属地 |
+| comment  | 评论内容  |
+| likes    | 点赞数   |
+| time     | 发布时间  |
+| root     | 主楼 ID |
+
+---
+
+# 🚀 Quick Start
+
+## 快速运行
 
 ```bash
 git clone https://github.com/LooAnndy/CommentAnalysis.git
-cd ./CommentAnalysis
-```
-
----
-
-## 📦 安装依赖
-
-### ✅ 方式一：venv
-
-```bash
-# 创建虚拟环境
-python -m venv venv
-
-# 激活（Windows）
-venv\Scripts\activate
-
-# 激活（Mac/Linux）
-source venv/bin/activate
-
-# 安装依赖
 pip install -r requirements.txt
-```
-
----
-
-### ✅ 方式二：conda（推荐 Anaconda / Miniconda 用户）
-
-```bash
-# 创建环境（指定Python版本更稳）
-conda create -n bilibili-analyzer python=3.8
-
-# 激活环境
-conda activate bilibili-analyzer
-
-# 安装依赖
-pip install -r requirements.txt
-```
-
----
-
-## ▶️ 启动项目
-
-```bash
 python app.py
 ```
 
-打开浏览器：
+访问：
 
 ```
 http://127.0.0.1:5000
@@ -83,31 +190,11 @@ http://127.0.0.1:5000
 
 ---
 
-## 📌 使用说明
+# ⚖️ Disclaimer
 
-1. 点击获取二维码并扫码登录
-2. 输入或选择 BV 号
-3. 点击“开始爬取”
-4. 点击“查看热度趋势”
+## 免责声明
 
----
-
-## 📂 数据说明
-
-* 评论数据存储在 `data/` 目录
-* 文件格式：`BVxxxx.csv`
+本项目仅用于学习与研究。
+请遵守 Bilibili 用户协议与相关法律法规。
 
 ---
-
-## ⚠️ 注意事项
-
-* 需要保持网络通畅，建议关闭 VPN
-* B站接口可能存在反爬限制
-* 建议不要高频请求
-
----
-
-## 📄 其他说明
-
-* 首次运行会自动生成数据目录（如不存在）
-* 登录信息会保存在本地 cookies 文件中
