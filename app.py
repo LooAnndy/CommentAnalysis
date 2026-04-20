@@ -1,8 +1,8 @@
 import os
 from flask import Flask
 
-from routes.auth import auth_bp
-from routes.api import api_bp
+from routes.auth_api import auth_api_bp
+from routes.analysis_api import analysis_api_bp
 from routes.views import view_bp
 from routes.crawl import crawl_bp, start_background_thread
 
@@ -13,8 +13,8 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # 注册蓝图
-app.register_blueprint(auth_bp)
-app.register_blueprint(api_bp)
+app.register_blueprint(auth_api_bp)
+app.register_blueprint(analysis_api_bp)
 app.register_blueprint(view_bp)
 app.register_blueprint(crawl_bp)
 

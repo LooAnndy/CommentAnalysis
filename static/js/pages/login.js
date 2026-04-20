@@ -1,3 +1,5 @@
+import { buildQrcodeImageUrl, checkLoginStatus, fetchQrcodeData } from "../modules/api/auth.js";
+
 // 登录页脚本：初始化二维码并轮询扫码状态。
 const qrcodeEl = document.getElementById("qrcode");
 const statusEl = document.getElementById("status");
@@ -16,12 +18,6 @@ function stopPolling() {
         window.clearInterval(pollTimer);
         pollTimer = null;
     }
-}
-
-// 查询后端保存的二维码登录状态。
-async function checkLoginStatus() {
-    const res = await fetch("/api/check_login");
-    return res.json();
 }
 
 // 固定 2s 轮询，平衡响应速度与请求频率。
@@ -59,9 +55,8 @@ function startPolling() {
 
 // 申请新的二维码链接，并通过本地接口生成二维码图片。
 async function initLoginQrcode() {
-    const res = await fetch("/api/qrcode_data");
-    const data = await res.json();
-    qrcodeEl.src = `/api/qrcode_image?url=${encodeURIComponent(data.url)}`;
+    const data = await fetchQrcodeData();
+    qrcodeEl.src = buildQrcodeImageUrl(data.url);
     setStatus("等待扫码...");
     startPolling();
 }

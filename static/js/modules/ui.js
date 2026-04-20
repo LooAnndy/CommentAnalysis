@@ -1,4 +1,5 @@
 import { appState, getBvColor } from "./state.js";
+// ui渲染器
 
 // 重绘“本地历史 BV”下拉选项。
 export function renderSourceOptions(selectEl) {
